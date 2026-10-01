@@ -10,13 +10,14 @@
  * No build step, no dependencies. MIT licence.
  */
 
-const LSC_VERSION = "0.3.0";
+const LSC_VERSION = "0.4.0";
 
 const LSC_STYLES = `
   :host { display: block; }
   ha-card { overflow: hidden; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; }
   .header { flex: none; }
   .body {
+    box-sizing: border-box;
     flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
     overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
     scrollbar-width: thin; scrollbar-color: var(--cp-line, var(--divider-color)) transparent;
@@ -137,6 +138,7 @@ const LSC_STYLES = `
 
   /* ---------- embedded (inside another card) ---------- */
   ha-card.embedded { background: transparent; border: none; box-shadow: none; border-radius: 0; }
+  :host([visible-games]) ha-card { height: auto; }
   ha-card.embedded .header { padding: 0 0 6px; }
   ha-card.embedded .body { padding: 0; }
 
@@ -242,7 +244,10 @@ class LeagueScoreboardCard extends HTMLElement {
       teams: teams.map((t) => (typeof t === "string" ? { entity: t } : t)),
     };
     this._config.scroll_reset = config.scroll_reset;
+    // Show exactly this many games; the rest scroll inside the card.
+    this._config.visible_games = Number(config.visible_games) > 0 ? Number(config.visible_games) : 0;
     this.setAttribute("scrollable", "");
+    this.toggleAttribute("visible-games", this._config.visible_games > 0);
     this._lastStates = null;
     if (this._hass) this._render();
   }
@@ -557,10 +562,24 @@ class LeagueScoreboardCard extends HTMLElement {
     }
   }
 
+  /** visible_games: cap the list's height at the bottom edge of the Nth game. */
+  _applyVisible() {
+    const n = this._config.visible_games;
+    const el = this.shadowRoot?.querySelector(".body");
+    if (!el) return;
+    const games = el.querySelectorAll(".game, .crow, .crow2");
+    if (!n || games.length <= n) { el.style.maxHeight = ""; return; }
+    const last = games[n - 1];
+    const bottom = last.getBoundingClientRect().bottom - el.getBoundingClientRect().top + el.scrollTop;
+    const padBottom = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+    el.style.maxHeight = `${Math.ceil(bottom + padBottom)}px`;
+  }
+
   _wireScroll(keepTop) {
     const el = this.shadowRoot.querySelector(".body");
     if (!el) return;
     this._ro?.disconnect();
+    this._applyVisible();
     const idle = Number(this._config.scroll_reset ?? 60);
     const update = () => el.classList.toggle("fade", el.scrollHeight - el.scrollTop - el.clientHeight > 4);
     if (keepTop) el.scrollTop = keepTop;
@@ -570,7 +589,12 @@ class LeagueScoreboardCard extends HTMLElement {
       clearTimeout(this._idle);
       if (idle > 0 && el.scrollTop > 0) this._idle = setTimeout(() => el.scrollTo({ top: 0, behavior: "smooth" }), idle * 1000);
     }, { passive: true });
-    if (window.ResizeObserver) { this._ro = new ResizeObserver(update); this._ro.observe(el); }
+    if (window.ResizeObserver) {
+      // re-measure when fonts/logos load or the card is resized
+      this._ro = new ResizeObserver(() => { this._applyVisible(); update(); });
+      this._ro.observe(el);
+      if (el.firstElementChild) this._ro.observe(el.firstElementChild);
+    }
   }
 
   _handleTap() {

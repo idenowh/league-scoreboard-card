@@ -65,6 +65,7 @@ entity: sensor.nfl_scoreboard
 | `show_league_labels` | auto | Group headings in full mode when the card mixes several sources. |
 | `empty_text` | built-in | Text when there are no games to show. |
 | `style` | `default` | `counter` draws plain rows with FINAL / live / kick-off tags in the Counter Panel card style (defaults `names` to `short`). |
+| `visible_games` | none | Make the card exactly this many games tall; the rest scroll inside it (with a fade at the bottom). Handy on a page of several lists, e.g. `visible_games: 3`. |
 | `scroll_reset` | `60` | When the card is given a fixed height (e.g. by Counter Panel's layout) the list scrolls inside it; after this many idle seconds it slides back to the top. `0` turns that off. |
 | `embedded` | `false` | `true` drops the card background, border and padding, for use inside another card (Counter Panel's weather card uses this). |
 | `tap_action` | none | `{action: navigate, navigation_path: /dashboard/view}`, `{action: more-info}` or `{action: url, url_path: https://…}`. Makes the whole card tappable. |
@@ -93,6 +94,7 @@ tap_action:
 type: custom:league-scoreboard-card
 title: Big Sky
 entity: sensor.big_sky_football
+visible_games: 3      # three games tall, scroll for the rest
 favorites: [MTST]
 ```
 
