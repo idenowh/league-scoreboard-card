@@ -1,0 +1,47 @@
+# Save as config/templates.yaml and add `template: !include templates.yaml`
+# to configuration.yaml. Checks ESPN every 5 minutes and on startup, and keeps
+# the last good data if a request fails.
+
+- trigger:
+    - platform: time_pattern
+      minutes: "/5"
+    - platform: homeassistant
+      event: start
+  action:
+    - service: rest_command.espn_scoreboard
+      data:
+        path: football/nfl/scoreboard
+      response_variable: nfl
+      continue_on_error: true
+    - service: rest_command.espn_scoreboard
+      data:
+        path: football/college-football/scoreboard
+      response_variable: top25
+      continue_on_error: true
+    - service: rest_command.espn_scoreboard
+      data:
+        path: football/college-football/scoreboard?groups=20
+      response_variable: bigsky
+      continue_on_error: true
+  sensor:
+    - name: NFL Scoreboard
+      unique_id: espn_nfl_scoreboard
+      state: "{{ nfl.content.events | count if nfl is defined and nfl.status == 200 else this.state }}"
+      attributes:
+        games: >
+          {% from 'espn.jinja' import games %}
+          {{ games(nfl.content) if nfl is defined and nfl.status == 200 else this.attributes.get('games', []) }}
+    - name: NCAAF Top 25
+      unique_id: espn_ncaaf_top25
+      state: "{{ top25.content.events | count if top25 is defined and top25.status == 200 else this.state }}"
+      attributes:
+        games: >
+          {% from 'espn.jinja' import games %}
+          {{ games(top25.content) if top25 is defined and top25.status == 200 else this.attributes.get('games', []) }}
+    - name: Big Sky Football
+      unique_id: espn_big_sky
+      state: "{{ bigsky.content.events | count if bigsky is defined and bigsky.status == 200 else this.state }}"
+      attributes:
+        games: >
+          {% from 'espn.jinja' import games %}
+          {{ games(bigsky.content) if bigsky is defined and bigsky.status == 200 else this.attributes.get('games', []) }}

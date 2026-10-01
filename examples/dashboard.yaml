@@ -1,0 +1,59 @@
+# Example dashboard pieces. Replace /dashboard-kitchen/ with your dashboard's URL name
+# (look at the browser address bar) and the team sensors with your Team Tracker sensors.
+
+# ── In your main view: compact card, live + today's games, tap opens the Sports page
+      - type: grid
+        cards:
+          - type: custom:league-scoreboard-card
+            mode: compact
+            title: Sports
+            max: 5
+            teams:
+              - sensor.chelsea
+              - sensor.montana_state
+              - sensor.dallas_stars
+            entities:
+              - entity: sensor.nfl_scoreboard
+                label: NFL
+              - entity: sensor.ncaaf_top_25
+                label: CFB
+              - entity: sensor.big_sky_football
+                label: BSKY
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-kitchen/sports
+
+# ── A second view: the full Sports page
+  - title: Sports
+    path: sports
+    subview: true
+    back_path: /dashboard-kitchen/kitchen
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: ‹ Back to Kitchen
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-kitchen/kitchen
+          - type: custom:league-scoreboard-card
+            title: My Teams
+            teams:
+              - sensor.chelsea
+              - sensor.montana_state
+              - sensor.dallas_stars
+          - type: custom:league-scoreboard-card
+            title: NFL
+            entity: sensor.nfl_scoreboard
+      - type: grid
+        cards:
+          - type: custom:league-scoreboard-card
+            title: NCAAF Top 25
+            entity: sensor.ncaaf_top_25
+          - type: custom:league-scoreboard-card
+            title: Big Sky
+            entity: sensor.big_sky_football
+            favorites:
+              - MTST

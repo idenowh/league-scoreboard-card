@@ -1,0 +1,19 @@
+# Add these to config/configuration.yaml.
+# If you already have a `template:` or `recorder:` key, merge into it instead of adding a second one.
+
+rest_command:
+  espn_scoreboard:
+    url: "https://site.api.espn.com/apis/site/v2/sports/{{ path }}"
+    method: get
+    timeout: 20
+
+template: !include templates.yaml
+
+# The game lists are large and change every few minutes. Keeping them out of the
+# history database avoids "attributes too large" warnings and database growth.
+recorder:
+  exclude:
+    entities:
+      - sensor.nfl_scoreboard
+      - sensor.ncaaf_top_25
+      - sensor.big_sky_football

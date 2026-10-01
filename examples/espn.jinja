@@ -1,0 +1,45 @@
+{# League Scoreboard Card — ESPN scoreboard macro.
+   Save as config/custom_templates/espn.jinja
+   Turns ESPN's (very large) scoreboard response into a short list of games. #}
+{% macro games(data) -%}
+{%- set ns = namespace(g=[]) -%}
+{%- for e in data.events | default([]) -%}
+{%- set c = e.competitions[0] -%}
+{%- set a = c.competitors | selectattr('homeAway','eq','away') | first -%}
+{%- set h = c.competitors | selectattr('homeAway','eq','home') | first -%}
+{%- set ar = a.curatedRank.current if a.curatedRank is defined else 99 -%}
+{%- set hr = h.curatedRank.current if h.curatedRank is defined else 99 -%}
+{%- set ap = '#' ~ ar ~ ' ' if ar <= 25 else '' -%}
+{%- set hp = '#' ~ hr ~ ' ' if hr <= 25 else '' -%}
+{%- set st = c.status.type.state -%}
+{%- set tv = c.broadcast if c.broadcast is defined and c.broadcast
+        else (c.broadcasts[0].names | join('/') if c.broadcasts is defined and c.broadcasts and c.broadcasts[0].names is defined else '') -%}
+{%- set ns.g = ns.g + [{
+  'away': ap ~ a.team.abbreviation,
+  'home': hp ~ h.team.abbreviation,
+  'away_abbr': a.team.abbreviation,
+  'home_abbr': h.team.abbreviation,
+  'away_full': a.team.displayName | default(a.team.abbreviation),
+  'home_full': h.team.displayName | default(h.team.abbreviation),
+  'away_short': a.team.shortDisplayName | default(a.team.abbreviation),
+  'home_short': h.team.shortDisplayName | default(h.team.abbreviation),
+  'away_rank': ar if ar <= 25 else none,
+  'home_rank': hr if hr <= 25 else none,
+  'away_logo': a.team.logo | default(''),
+  'home_logo': h.team.logo | default(''),
+  'away_color': a.team.color | default(''),
+  'home_color': h.team.color | default(''),
+  'away_record': (a.records[0].summary if a.records is defined and a.records else ''),
+  'home_record': (h.records[0].summary if h.records is defined and h.records else ''),
+  'away_score': a.score | default(''),
+  'home_score': h.score | default(''),
+  'state': st,
+  'detail': c.status.type.shortDetail,
+  'tv': tv,
+  'date': e.date,
+  'day': (e.date | as_datetime | as_local).date() | string,
+  'order': {'in': 0, 'pre': 1, 'post': 2}.get(st, 3)
+}] -%}
+{%- endfor -%}
+{{ ns.g | sort(attribute='order') | list }}
+{%- endmacro %}
