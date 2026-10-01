@@ -10,11 +10,23 @@
  * No build step, no dependencies. MIT licence.
  */
 
-const LSC_VERSION = "0.2.0";
+const LSC_VERSION = "0.3.0";
 
 const LSC_STYLES = `
   :host { display: block; }
-  ha-card { overflow: hidden; }
+  ha-card { overflow: hidden; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; }
+  .header { flex: none; }
+  .body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+    overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin; scrollbar-color: var(--cp-line, var(--divider-color)) transparent;
+  }
+  .body::-webkit-scrollbar { width: 4px; }
+  .body::-webkit-scrollbar-thumb { background: var(--cp-line, var(--divider-color)); border-radius: 4px; }
+  .body.fade {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  }
   ha-card.tappable { cursor: pointer; }
   ha-card.tappable:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 
@@ -130,6 +142,16 @@ const LSC_STYLES = `
 
   /* ---------- counter style: Counter Panel rows ---------- */
   ha-card.counter { font-family: var(--cp-font-body, "Work Sans", system-ui, sans-serif); }
+  ha-card.counter:not(.embedded) {
+    background: var(--cp-panel, var(--ha-card-background, var(--card-background-color)));
+    border: 1px solid var(--cp-line, var(--divider-color)); border-radius: 16px; box-shadow: none; padding: 18px;
+  }
+  ha-card.counter:not(.embedded) .header.counter { padding: 0 0 12px; font-size: 13px; letter-spacing: 1.5px; }
+  ha-card.counter:not(.embedded) .header.counter svg { color: var(--cp-amber, #D9A441); }
+  ha-card.counter:not(.embedded) .body { padding: 0; }
+  ha-card.counter .crow2 { padding: 6px 0; border-bottom: 1px solid var(--cp-rule, rgba(127,127,127,0.16)); }
+  ha-card.counter .crow2:last-of-type { border-bottom: none; }
+  ha-card.counter.embedded .crow2 { padding: 4px 0; border-bottom: none; }
   .header.counter {
     justify-content: flex-start; gap: 7px; color: var(--secondary-text-color);
     font-family: var(--cp-font-display, "Barlow Condensed", "Arial Narrow", sans-serif);
@@ -219,6 +241,8 @@ class LeagueScoreboardCard extends HTMLElement {
       leagues: leagues.map((l) => (typeof l === "string" ? { entity: l } : l)),
       teams: teams.map((t) => (typeof t === "string" ? { entity: t } : t)),
     };
+    this._config.scroll_reset = config.scroll_reset;
+    this.setAttribute("scrollable", "");
     this._lastStates = null;
     if (this._hass) this._render();
   }
@@ -240,6 +264,8 @@ class LeagueScoreboardCard extends HTMLElement {
 
   disconnectedCallback() {
     clearInterval(this._timer);
+    clearTimeout(this._idle);
+    this._ro?.disconnect();
   }
 
   getCardSize() {
@@ -500,12 +526,16 @@ class LeagueScoreboardCard extends HTMLElement {
       body += `<div class="more">+${extra} more${tappable ? " — tap to see all" : ""}</div>`;
     }
 
+    const prevBody = this.shadowRoot.querySelector(".body");
+    const keepTop = prevBody ? prevBody.scrollTop : 0;
     this.shadowRoot.innerHTML = `
       <style>${LSC_STYLES}</style>
       <ha-card class="${[tappable ? "tappable" : "", cfg.embedded ? "embedded" : "", counter ? "counter" : ""].filter(Boolean).join(" ")}" ${tappable ? 'role="button" tabindex="0"' : ""}>
         ${header}
         <div class="body${compact ? " compact" : ""}${counter ? " clist" : ""}">${body}</div>
       </ha-card>`;
+
+    this._wireScroll(keepTop);
 
     // Swap any logo that fails to load for a coloured badge with the team abbreviation.
     this.shadowRoot.querySelectorAll("img.logo").forEach((img) => {
@@ -525,6 +555,22 @@ class LeagueScoreboardCard extends HTMLElement {
         if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); this._handleTap(); }
       });
     }
+  }
+
+  _wireScroll(keepTop) {
+    const el = this.shadowRoot.querySelector(".body");
+    if (!el) return;
+    this._ro?.disconnect();
+    const idle = Number(this._config.scroll_reset ?? 60);
+    const update = () => el.classList.toggle("fade", el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+    if (keepTop) el.scrollTop = keepTop;
+    update();
+    el.addEventListener("scroll", () => {
+      update();
+      clearTimeout(this._idle);
+      if (idle > 0 && el.scrollTop > 0) this._idle = setTimeout(() => el.scrollTo({ top: 0, behavior: "smooth" }), idle * 1000);
+    }, { passive: true });
+    if (window.ResizeObserver) { this._ro = new ResizeObserver(update); this._ro.observe(el); }
   }
 
   _handleTap() {

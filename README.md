@@ -64,7 +64,8 @@ entity: sensor.nfl_scoreboard
 | `show_tv` | `true` | TV network next to the status for upcoming and live games. |
 | `show_league_labels` | auto | Group headings in full mode when the card mixes several sources. |
 | `empty_text` | built-in | Text when there are no games to show. |
-| `style` | `default` | `counter` draws plain rows with FINAL / live / kick-off tags, matching the Counter Panel design (defaults `names` to `short`). |
+| `style` | `default` | `counter` draws plain rows with FINAL / live / kick-off tags in the Counter Panel card style (defaults `names` to `short`). |
+| `scroll_reset` | `60` | When the card is given a fixed height (e.g. by Counter Panel's layout) the list scrolls inside it; after this many idle seconds it slides back to the top. `0` turns that off. |
 | `embedded` | `false` | `true` drops the card background, border and padding, for use inside another card (Counter Panel's weather card uses this). |
 | `tap_action` | none | `{action: navigate, navigation_path: /dashboard/view}`, `{action: more-info}` or `{action: url, url_path: https://…}`. Makes the whole card tappable. |
 
