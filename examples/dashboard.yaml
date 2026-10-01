@@ -10,7 +10,7 @@
             max: 5
             teams:
               - sensor.chelsea
-              - sensor.montana_state
+              - sensor.montana_state_bobcats
               - sensor.dallas_stars
             entities:
               - entity: sensor.nfl_scoreboard
@@ -42,7 +42,7 @@
             title: My Teams
             teams:
               - sensor.chelsea
-              - sensor.montana_state
+              - sensor.montana_state_bobcats
               - sensor.dallas_stars
           - type: custom:league-scoreboard-card
             title: NFL

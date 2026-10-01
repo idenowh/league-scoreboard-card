@@ -76,7 +76,7 @@ entity: sensor.nfl_scoreboard
 type: custom:league-scoreboard-card
 mode: compact
 title: Sports
-teams: [sensor.chelsea, sensor.montana_state, sensor.dallas_stars]
+teams: [sensor.chelsea, sensor.montana_state_bobcats, sensor.dallas_stars]
 entities:
   - { entity: sensor.nfl_scoreboard, label: NFL }
   - { entity: sensor.ncaaf_top_25, label: CFB }
