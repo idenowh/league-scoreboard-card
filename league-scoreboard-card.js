@@ -10,7 +10,7 @@
  * No build step, no dependencies. MIT licence.
  */
 
-const LSC_VERSION = "0.1.0";
+const LSC_VERSION = "0.2.0";
 
 const LSC_STYLES = `
   :host { display: block; }
@@ -122,6 +122,36 @@ const LSC_STYLES = `
   .cstatus { font-size: 12px; color: var(--secondary-text-color); margin-top: 1px; }
   .cstatus .live { color: var(--primary-color); font-weight: 700; }
   .more { padding: 6px 4px 0; font-size: 12px; font-style: italic; color: var(--secondary-text-color); text-align: center; }
+
+  /* ---------- embedded (inside another card) ---------- */
+  ha-card.embedded { background: transparent; border: none; box-shadow: none; border-radius: 0; }
+  ha-card.embedded .header { padding: 0 0 6px; }
+  ha-card.embedded .body { padding: 0; }
+
+  /* ---------- counter style: Counter Panel rows ---------- */
+  ha-card.counter { font-family: var(--cp-font-body, "Work Sans", system-ui, sans-serif); }
+  .header.counter {
+    justify-content: flex-start; gap: 7px; color: var(--secondary-text-color);
+    font-family: var(--cp-font-display, "Barlow Condensed", "Arial Narrow", sans-serif);
+    font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+  }
+  .header.counter .chev { margin-left: auto; }
+  .clist { gap: 0; }
+  .crow2 {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 4px 0; font-size: 12.5px; color: var(--primary-text-color);
+  }
+  .crow2 .teams { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .crow2.upcoming .teams { color: var(--secondary-text-color); }
+  .crow2 .loser { opacity: 0.6; }
+  .crow2 .star { color: var(--primary-color); margin-right: 4px; }
+  .crow2 .tag {
+    flex: none; font-family: var(--cp-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+    font-size: 11px; font-variant-numeric: tabular-nums;
+  }
+  .crow2 .tag.final { color: var(--cp-sage, #7FA07A); }
+  .crow2 .tag.live { color: var(--cp-amber, #D9A441); }
+  .crow2 .tag.pre { color: var(--cp-blue, #6C93AD); }
 `;
 
 function lscEscape(value) {
@@ -169,10 +199,13 @@ class LeagueScoreboardCard extends HTMLElement {
       throw new Error("Set 'entity', 'entities' or 'teams'");
     }
     const mode = config.mode === "compact" ? "compact" : "full";
+    const style = config.style === "counter" ? "counter" : "default";
     this._config = {
       mode,
+      style,
+      embedded: config.embedded === true,
       title: config.title,
-      names: config.names || (mode === "compact" ? "abbr" : "full"),
+      names: config.names || (style === "counter" ? "short" : mode === "compact" ? "abbr" : "full"),
       filter: config.filter || (mode === "compact" ? "today" : "all"),
       max: config.max === undefined || config.max === null || !Number.isFinite(Number(config.max))
         ? (mode === "compact" ? 5 : 0)
@@ -399,6 +432,31 @@ class LeagueScoreboardCard extends HTMLElement {
     </div>`;
   }
 
+  /** One plain row, Counter Panel style: "Cowboys 21 – 17 Eagles ........ FINAL" */
+  _counterRow(g) {
+    const win = this._winner(g);
+    const name = (s, which) => {
+      const n = `${s.rank ? `#${s.rank} ` : ""}${this._name(s)}`;
+      return `<span class="${win && win !== which ? "loser" : ""}">${lscEscape(n)}</span>`;
+    };
+    const mid = g.state === "pre" ? " vs " : ` ${lscEscape(g.away.score)} – ${lscEscape(g.home.score)} `;
+    let tag, cls;
+    if (g.state === "post") { tag = "FINAL"; cls = "final"; }
+    else if (g.state === "in") { tag = String(g.detail || "LIVE").toUpperCase(); cls = "live"; }
+    else {
+      const d = g.date ? new Date(g.date) : null;
+      if (d && !Number.isNaN(d.getTime())) {
+        const today = lscLocalDay(d) === lscLocalDay(new Date());
+        const t = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        tag = today ? t : `${d.toLocaleDateString([], { weekday: "short" })} ${t}`;
+      } else tag = g.detail || "";
+      cls = "pre";
+    }
+    return `<div class="crow2${g.state === "pre" ? " upcoming" : ""}">
+      <span class="teams">${g.fav ? '<span class="star">★</span>' : ""}${name(g.away, "away")}${mid}${name(g.home, "home")}</span>
+      <span class="tag ${cls}">${lscEscape(tag)}</span></div>`;
+  }
+
   // ---------- render ----------
 
   _render() {
@@ -413,13 +471,17 @@ class LeagueScoreboardCard extends HTMLElement {
     this._lastCount = shown.length;
 
     const tappable = cfg.tap_action && cfg.tap_action.action && cfg.tap_action.action !== "none";
-    const header = cfg.title
-      ? `<div class="header"><span>${lscEscape(cfg.title)}</span>${tappable ? '<span class="chev">›</span>' : ""}</div>`
-      : "";
+    const counter = cfg.style === "counter";
+    const trophy = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4h8v4a4 4 0 0 1-8 0V4z"/><path d="M5 5H3v2a4 4 0 0 0 4 4M19 5h2v2a4 4 0 0 1-4 4"/><path d="M10 15h4v2h-4zM9 21h6M11 17v4"/></svg>`;
+    const header = !cfg.title ? "" : counter
+      ? `<div class="header counter">${trophy}<span>${lscEscape(cfg.title)}</span>${tappable ? '<span class="chev">›</span>' : ""}</div>`
+      : `<div class="header"><span>${lscEscape(cfg.title)}</span>${tappable ? '<span class="chev">›</span>' : ""}</div>`;
 
     let body = warnings.map((w) => `<div class="warn">${lscEscape(w)}</div>`).join("");
     if (!shown.length) {
       body += `<div class="empty">${lscEscape(cfg.empty_text || (cfg.filter === "today" ? "No live games or games today." : "No games this week."))}</div>`;
+    } else if (counter) {
+      body += shown.map((g) => this._counterRow(g)).join("");
     } else if (compact) {
       body += shown.map((g) => this._compactRow(g)).join("");
     } else {
@@ -440,9 +502,9 @@ class LeagueScoreboardCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
       <style>${LSC_STYLES}</style>
-      <ha-card class="${tappable ? "tappable" : ""}" ${tappable ? 'role="button" tabindex="0"' : ""}>
+      <ha-card class="${[tappable ? "tappable" : "", cfg.embedded ? "embedded" : "", counter ? "counter" : ""].filter(Boolean).join(" ")}" ${tappable ? 'role="button" tabindex="0"' : ""}>
         ${header}
-        <div class="body${compact ? " compact" : ""}">${body}</div>
+        <div class="body${compact ? " compact" : ""}${counter ? " clist" : ""}">${body}</div>
       </ha-card>`;
 
     // Swap any logo that fails to load for a coloured badge with the team abbreviation.
